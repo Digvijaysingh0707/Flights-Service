@@ -4,7 +4,10 @@ module.exports = (sequelize, DataTypes) => {
   class City extends Model {
     static associate(models) {
       // define association here
-      this.hasMany(models.Airports);
+      this.hasMany(models.Airports, {
+        foreignKey: "cityId",
+        onDelete: "CASCADE",
+      });
     }
   }
   City.init(
