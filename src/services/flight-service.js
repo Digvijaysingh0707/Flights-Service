@@ -1,6 +1,7 @@
 const { FlightRepository } = require("../repositories");
 const { StatusCodes } = require("http-status-codes");
 const AppError = require("../utils/errors/app-error");
+const { Op } = require("sequelize");
 
 const flightRepository = new FlightRepository();
 
@@ -23,67 +24,53 @@ async function createFlight(data) {
   }
 }
 
-// async function getAirports() {
-//   try {
-//     const airports = await airportRepository.getAll();
-//     return airports;
-//   } catch (error) {
-//     throw new AppError(
-//       "Cannot fetch data of all airports",
-//       StatusCodes.INTERNAL_SERVER_ERROR
-//     );
-//   }
-// }
+async function getAllFlights(query) {
+  let customFilter = {};
+  let sortFilter = [];
+  let endingTripTime = " 23:59:59";
+  if (query.trips) {
+    [departureAirportId, arrivalAirportId] = query.trips.split("-");
+    customFilter.departureAirportId = departureAirportId;
+    customFilter.arrivalAirportId = arrivalAirportId;
+  }
 
-// async function getAirport(id) {
-//   try {
-//     const airport = await airportRepository.get(id);
-//     return airport;
-//   } catch (error) {
-//     if (error.statusCode == StatusCodes.NOT_FOUND) {
-//       throw new AppError("Airport not found", error.statusCode);
-//     }
-//     throw new AppError("Cannot fetch data ", StatusCodes.INTERNAL_SERVER_ERROR);
-//   }
-// }
-
-// async function destroyAirport(id) {
-//   try {
-//     const airport = await airportRepository.destroy(id);
-//     return airport;
-//   } catch (error) {
-//     if (error.statusCode == StatusCodes.NOT_FOUND) {
-//       throw new AppError("Airport not found", error.statusCode);
-//     }
-//     throw new AppError(
-//       "Cannot fetch data of all Airport",
-//       StatusCodes.INTERNAL_SERVER_ERROR
-//     );
-//   }
-// }
-
-// async function updateAirport(id, data) {
-//   try {
-//     const response = await airportRepository.update(id, data);
-//     return response;
-//   } catch (error) {
-//     if ((error.statusCodes = StatusCodes.NOT_FOUND)) {
-//       throw new AppError(
-//         "The requested airport to update does not exist",
-//         error.statusCodes
-//       );
-//     }
-//     throw new AppError(
-//       "Cannot fetch data of all the airports",
-//       StatusCodes.INTERNAL_SERVER_ERROR
-//     );
-//   }
-// }
+  if (query.price) {
+    [minPrice, maxPrice] = query.price.split("-");
+    customFilter.price = {
+      [Op.between]: [minPrice, maxPrice ?? 20000],
+    };
+  }
+  if (query.travellers) {
+    customFilter.totalSeats = {
+      [Op.gte]: query.travellers,
+    };
+  }
+  if (query.tripDate) {
+    customFilter.departureTime = {
+      [Op.between]: [query.tripDate, query.tripDate + endingTripTime],
+    };
+  }
+  if (query.sort) {
+    const params = query.sort.split(",");
+    const sortFilters = params.map((param) => param.split("_"));
+    sortFilter = sortFilters;
+  }
+  console.log(customFilter, "CUSTOM");
+  try {
+    const flights = await flightRepository.getAllFlights(
+      customFilter,
+      sortFilter
+    );
+    return flights;
+  } catch (error) {
+    throw new AppError(
+      "Can not fetch data of all the flights",
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+}
 
 module.exports = {
   createFlight,
-  //   getAirports,
-  //   getAirport,
-  //   destroyAirport,
-  //   updateAirport,
+  getAllFlights,
 };
